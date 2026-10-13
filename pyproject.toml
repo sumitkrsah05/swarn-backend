@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swarn-backend"
+version = "0.1.0"
+description = "Hosted swarn backend: FastAPI API + per-job workers over PostgreSQL, MinIO and Google sign-in."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "boto3>=1.34.0",
+    "httpx>=0.27.0",
+    "PyJWT[crypto]>=2.8.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.9",
+    "pyarrow>=16.0.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    # the agent engines; the worker process imports them, the API never does
+    "swarn",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+swarn-backend = "swarn_backend.cli:main"
+
+[tool.uv.sources]
+swarn = { path = "../agent2", editable = true }
+
+[tool.setuptools.packages.find]
+include = ["swarn_backend*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
