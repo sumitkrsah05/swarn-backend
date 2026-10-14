@@ -1,0 +1,24 @@
+# Copy to the folder that holds agent2/, swarn-backend/ and swarn-frontend/
+# (the compose build context) as `.dockerignore`, otherwise every build
+# ships the virtualenvs, node_modules and old runs (tens of GB) to Docker.
+**/.git
+**/.venv
+**/venv
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/.env
+**/.env.*
+!**/.env.example
+agent2/runs
+agent2/sessions
+agent2/workspace
+agent2/knowledge
+agent2/artifacts
+agent2/agent/runs
+agent2/agent/workspace
+swarn-backend/work
+swarn-frontend/coverage
