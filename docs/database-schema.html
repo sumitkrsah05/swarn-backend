@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swarn backend · database schema</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;
+      --color-ink:     #2d3142;
+      --color-muted:   #4f5d75;
+      --color-accent:  #bf4520;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+    .frame { max-width: 1548px; width: 100%; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    .eyebrow {
+      font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted); margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400;
+      letter-spacing: -0.02em; line-height: 1.15; color: var(--color-ink); margin-bottom: 0.5rem;
+    }
+    .sub { color: var(--color-muted); font-size: 0.9rem; margin-bottom: 1.5rem; max-width: 70ch; line-height: 1.45; }
+    svg { width: 100%; min-width: 1548px; display: block; }
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">ER · swarn backend · Postgres</p>
+    <h1>Swarn backend · database schema</h1>
+    <p class="sub">18 tables from <code>swarn_backend/db/models.py</code> (Alembic revision b0c39740e55f). Every box lists its keys and the most telling columns; the rest are folded into “+ N more columns”. Lines are real foreign keys; <code>~</code> marks loose references that carry an id without a constraint.</p>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1548 1192" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="db-schema-title db-schema-desc">
+        <title id="db-schema-title">Swarn backend · database schema</title>
+        <desc id="db-schema-desc">Entity-relationship diagram of the 18 Postgres tables: users own workspaces, upload batches, auth sessions and ledgers; workspaces own datasets, files, jobs, agent sessions and search runs; jobs emit events and approvals and link to the agent session and search run they produce.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        </defs>
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <rect x="40" y="92" width="292" height="1000" rx="6" fill="#ececec" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+        <text x="56" y="112" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">WORKSPACE</text>
+        <rect x="372" y="92" width="528" height="1000" rx="6" fill="#ececec" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+        <text x="388" y="112" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">IDENTITY · UPLOADS · LEDGERS</text>
+        <rect x="940" y="92" width="268" height="1000" rx="6" fill="#ececec" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+        <text x="956" y="112" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">JOBS</text>
+        <rect x="1248" y="92" width="248" height="1000" rx="6" fill="#ececec" stroke="rgba(45,49,66,0.12)" stroke-width="1"/>
+        <text x="1264" y="112" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">AGENT RECORDS</text>
+        <line x1="412" y1="192" x2="316" y2="192" stroke="#4f5d75" stroke-width="1"/>
+        <path d="M412,256 H400 Q392,256 392,264 V650 Q392,658 400,658 H412" fill="none" stroke="#4f5d75" stroke-width="1"/>
+        <line x1="520" y1="320" x2="520" y2="360" stroke="#4f5d75" stroke-width="1"/>
+        <line x1="628" y1="192" x2="668" y2="192" stroke="#4f5d75" stroke-width="1"/>
+        <path d="M628,256 H640 Q648,256 648,264 V650 Q648,658 656,658 H668" fill="none" stroke="#4f5d75" stroke-width="1"/>
+        <line x1="776" y1="280" x2="776" y2="320" stroke="#4f5d75" stroke-width="1"/>
+        <line x1="884" y1="204" x2="976" y2="204" stroke="#4f5d75" stroke-width="1"/>
+        <path d="M100,243 H84 Q76,243 76,251 V448 Q76,456 84,456 H100" fill="none" stroke="#4f5d75" stroke-width="1"/>
+        <path d="M100,185 H72 Q64,185 64,193 V720 Q64,728 72,728 H100" fill="none" stroke="#4f5d75" stroke-width="1"/>
+        <path d="M154,128 V36 Q154,28 162,28 H1508 Q1516,28 1516,36 V720 Q1516,728 1508,728 H1480" fill="none" stroke="#4f5d75" stroke-width="1"/>
+        <path d="M208,128 V56 Q208,48 216,48 H1400 Q1408,48 1408,56 V128" fill="none" stroke="#4f5d75" stroke-width="1"/>
+        <path d="M262,128 V76 Q262,68 270,68 H1076 Q1084,68 1084,76 V128" fill="none" stroke="#4f5d75" stroke-width="1"/>
+        <line x1="1084" y1="440" x2="1084" y2="480" stroke="#4f5d75" stroke-width="1"/>
+        <path d="M976,400 H968 Q960,400 960,408 V790 Q960,798 968,798 H976" fill="none" stroke="#4f5d75" stroke-width="1"/>
+        <line x1="1192" y1="224" x2="1264" y2="224" stroke="#4f5d75" stroke-width="1"/>
+        <path d="M1192,360 H1220 Q1228,360 1228,368 V720 Q1228,728 1236,728 H1264" fill="none" stroke="#4f5d75" stroke-width="1"/>
+        <line x1="1372" y1="360" x2="1372" y2="400" stroke="#4f5d75" stroke-width="1"/>
+        <line x1="1372" y1="844" x2="1372" y2="884" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="394.0" y="174" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="400.0" y="183.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="321.0" y="174" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="328.0" y="183.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="374" y="270" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="380.0" y="279.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="372" y="632" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="379.0" y="641.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="526" y="324" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="532.0" y="333.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="526" y="344" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="533.0" y="353.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="634.0" y="174" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="640.0" y="183.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="649.0" y="174" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="656.0" y="183.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="630" y="270" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="636.0" y="279.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="628" y="632" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="635.0" y="641.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="782" y="284" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="788.0" y="293.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="782" y="304" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="789.0" y="313.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="893.0" y="186" width="30.8" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="908.4" y="195.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">0..1</text>
+        <rect x="957.0" y="186" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="964.0" y="195.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="82" y="257" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="88.0" y="266.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="82" y="430" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="89.0" y="439.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="46" y="199" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="52.0" y="208.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="44" y="702" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="51.0" y="711.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="160" y="108" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="166.0" y="117.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="214" y="108" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="220.0" y="117.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="268" y="108" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="274.0" y="117.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="1522" y="702" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1529.0" y="711.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="1414" y="108" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1421.0" y="117.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="1090" y="108" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1097.0" y="117.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="1090" y="444" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1096.0" y="453.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="1090" y="464" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1097.0" y="473.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="942" y="414" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="948.0" y="423.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="940" y="772" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="947.0" y="781.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="1201.0" y="206" width="30.8" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1216.4" y="215.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">0..1</text>
+        <rect x="1245.0" y="206" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1252.0" y="215.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="1234" y="376" width="30.8" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1249.4" y="385.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">0..1</text>
+        <rect x="1234" y="702" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1241.0" y="711.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="1378" y="364" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1384.0" y="373.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="1378" y="384" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1385.0" y="393.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="1378" y="848" width="12" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1384.0" y="857.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="1378" y="868" width="14" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="1385.0" y="877.5" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">N</text>
+        <rect x="100" y="128" width="216" height="172" fill="#f5f5f5"/>
+        <rect x="100" y="128" width="216" height="172" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="100" y="128" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="100" y="160" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="100" y1="168" x2="316" y2="168" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="116" y="144" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="116" y="160" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">workspaces</text>
+        <text x="116" y="188" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="300" y="188" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="116" y="208" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ user_id</text>
+        <text x="300" y="208" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="116" y="228" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">name</text>
+        <text x="300" y="228" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="116" y="248" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">client_state</text>
+        <text x="300" y="248" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">jsonb</text>
+        <text x="116" y="268" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">deleted_at</text>
+        <text x="300" y="268" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">timestamptz</text>
+        <text x="116" y="288" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 2 more columns</text>
+        <rect x="100" y="340" width="216" height="232" fill="#f5f5f5"/>
+        <rect x="100" y="340" width="216" height="232" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="100" y="340" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="100" y="372" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="100" y1="380" x2="316" y2="380" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="116" y="356" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="116" y="372" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">datasets</text>
+        <text x="116" y="400" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="300" y="400" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="116" y="420" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ workspace_id</text>
+        <text x="300" y="420" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="116" y="440" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">name</text>
+        <text x="300" y="440" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text · uq active</text>
+        <text x="116" y="460" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ job_id</text>
+        <text x="300" y="460" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">char(12)</text>
+        <text x="116" y="480" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ session_id</text>
+        <text x="300" y="480" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="116" y="500" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">columns</text>
+        <text x="300" y="500" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">jsonb</text>
+        <text x="116" y="520" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">object_key</text>
+        <text x="300" y="520" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="116" y="540" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">superseded_at</text>
+        <text x="300" y="540" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">timestamptz</text>
+        <text x="116" y="560" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 7 more columns</text>
+        <rect x="100" y="612" width="216" height="232" fill="#f5f5f5"/>
+        <rect x="100" y="612" width="216" height="232" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="100" y="612" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="100" y="644" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="100" y1="652" x2="316" y2="652" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="116" y="628" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="116" y="644" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">files</text>
+        <text x="116" y="672" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="300" y="672" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="116" y="692" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ workspace_id</text>
+        <text x="300" y="692" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="116" y="712" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">path</text>
+        <text x="300" y="712" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text · uq active</text>
+        <text x="116" y="732" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">kind</text>
+        <text x="300" y="732" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="116" y="752" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ job_id</text>
+        <text x="300" y="752" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">char(12)</text>
+        <text x="116" y="772" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ session_id</text>
+        <text x="300" y="772" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="116" y="792" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">object_key</text>
+        <text x="300" y="792" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="116" y="812" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">deleted_at</text>
+        <text x="300" y="812" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">timestamptz</text>
+        <text x="116" y="832" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 8 more columns</text>
+        <rect x="412" y="128" width="216" height="192" fill="#f5f5f5"/>
+        <rect x="412" y="128" width="216" height="192" rx="6" fill="rgba(191,69,32,0.04)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="412" y="128" width="216" height="40" rx="6" fill="rgba(191,69,32,0.10)"/>
+        <rect x="412" y="160" width="216" height="8" fill="rgba(191,69,32,0.10)"/>
+        <line x1="412" y1="168" x2="628" y2="168" stroke="rgba(191,69,32,0.40)" stroke-width="1"/>
+        <text x="428" y="144" fill="#bf4520" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE · HUB</text>
+        <text x="428" y="160" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">users</text>
+        <text x="428" y="188" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="612" y="188" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="428" y="208" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">email</text>
+        <text x="612" y="208" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text · unique</text>
+        <text x="428" y="228" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">google_sub</text>
+        <text x="612" y="228" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text · unique</text>
+        <text x="428" y="248" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">role</text>
+        <text x="612" y="248" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="428" y="268" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">active</text>
+        <text x="612" y="268" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">bool</text>
+        <text x="428" y="288" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">created_at</text>
+        <text x="612" y="288" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">timestamptz</text>
+        <text x="428" y="308" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 4 more columns</text>
+        <rect x="412" y="360" width="216" height="172" fill="#f5f5f5"/>
+        <rect x="412" y="360" width="216" height="172" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="412" y="360" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="412" y="392" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="412" y1="400" x2="628" y2="400" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="428" y="376" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="428" y="392" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">auth_sessions</text>
+        <text x="428" y="420" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="612" y="420" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="428" y="440" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ user_id</text>
+        <text x="612" y="440" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="428" y="460" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">token_hash</text>
+        <text x="612" y="460" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">bytea · unique</text>
+        <text x="428" y="480" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">kind</text>
+        <text x="612" y="480" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">browser | cli</text>
+        <text x="428" y="500" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">expires_at</text>
+        <text x="612" y="500" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">timestamptz</text>
+        <text x="428" y="520" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 5 more columns</text>
+        <rect x="412" y="572" width="216" height="172" fill="#f5f5f5"/>
+        <rect x="412" y="572" width="216" height="172" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="412" y="572" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="412" y="604" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="412" y1="612" x2="628" y2="612" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="428" y="588" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="428" y="604" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">cli_login_codes</text>
+        <text x="428" y="632" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># code</text>
+        <text x="612" y="632" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="428" y="652" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ user_id</text>
+        <text x="612" y="652" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid · null</text>
+        <text x="428" y="672" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">status</text>
+        <text x="612" y="672" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="428" y="692" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">token_plain</text>
+        <text x="612" y="692" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text · null</text>
+        <text x="428" y="712" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">expires_at</text>
+        <text x="612" y="712" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">timestamptz</text>
+        <text x="428" y="732" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 2 more columns</text>
+        <rect x="412" y="784" width="216" height="152" fill="#f5f5f5"/>
+        <rect x="412" y="784" width="216" height="152" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="412" y="784" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="412" y="816" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="412" y1="824" x2="628" y2="824" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="428" y="800" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="428" y="816" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">oauth_states</text>
+        <text x="428" y="844" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># state</text>
+        <text x="612" y="844" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="428" y="864" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">code_verifier</text>
+        <text x="612" y="864" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="428" y="884" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ cli_code</text>
+        <text x="612" y="884" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text · null</text>
+        <text x="428" y="904" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">redirect_to</text>
+        <text x="612" y="904" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="428" y="924" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">created_at</text>
+        <text x="612" y="924" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">timestamptz</text>
+        <rect x="668" y="128" width="216" height="152" fill="#f5f5f5"/>
+        <rect x="668" y="128" width="216" height="152" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="668" y="128" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="668" y="160" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="668" y1="168" x2="884" y2="168" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="684" y="144" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="684" y="160" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">upload_batches</text>
+        <text x="684" y="188" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="868" y="188" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="684" y="208" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ user_id</text>
+        <text x="868" y="208" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="684" y="228" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">label</text>
+        <text x="868" y="228" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="684" y="248" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">created_at</text>
+        <text x="868" y="248" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">timestamptz</text>
+        <text x="684" y="268" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">deleted_at</text>
+        <text x="868" y="268" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">timestamptz</text>
+        <rect x="668" y="320" width="216" height="192" fill="#f5f5f5"/>
+        <rect x="668" y="320" width="216" height="192" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="668" y="320" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="668" y="352" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="668" y1="360" x2="884" y2="360" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="684" y="336" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="684" y="352" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">upload_files</text>
+        <text x="684" y="380" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="868" y="380" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="684" y="400" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ batch_id</text>
+        <text x="868" y="400" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="684" y="420" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">name</text>
+        <text x="868" y="420" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="684" y="440" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">size</text>
+        <text x="868" y="440" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">bigint</text>
+        <text x="684" y="460" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">sha256</text>
+        <text x="868" y="460" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">bytea</text>
+        <text x="684" y="480" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">object_key</text>
+        <text x="868" y="480" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="684" y="500" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 1 more columns</text>
+        <rect x="668" y="552" width="216" height="212" fill="#f5f5f5"/>
+        <rect x="668" y="552" width="216" height="212" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="668" y="552" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="668" y="584" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="668" y1="592" x2="884" y2="592" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="684" y="568" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEDGER · APPEND-ONLY</text>
+        <text x="684" y="584" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">usage_events</text>
+        <text x="684" y="612" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="868" y="612" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">bigserial</text>
+        <text x="684" y="632" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ user_id</text>
+        <text x="868" y="632" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="684" y="652" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ job_id</text>
+        <text x="868" y="652" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">char(12)</text>
+        <text x="684" y="672" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ workspace_id</text>
+        <text x="868" y="672" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="684" y="692" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">model</text>
+        <text x="868" y="692" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="684" y="712" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">input/output_tokens</text>
+        <text x="868" y="712" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">bigint</text>
+        <text x="684" y="732" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">cost</text>
+        <text x="868" y="732" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">numeric(12,6)</text>
+        <text x="684" y="752" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 5 more columns</text>
+        <rect x="668" y="804" width="216" height="192" fill="#f5f5f5"/>
+        <rect x="668" y="804" width="216" height="192" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="668" y="804" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="668" y="836" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="668" y1="844" x2="884" y2="844" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="684" y="820" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEDGER · APPEND-ONLY</text>
+        <text x="684" y="836" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">audit_log</text>
+        <text x="684" y="864" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="868" y="864" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">bigserial</text>
+        <text x="684" y="884" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ actor_user_id</text>
+        <text x="868" y="884" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="684" y="904" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">action</text>
+        <text x="868" y="904" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="684" y="924" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">target_type</text>
+        <text x="868" y="924" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="684" y="944" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">target_id</text>
+        <text x="868" y="944" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="684" y="964" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">details</text>
+        <text x="868" y="964" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">jsonb</text>
+        <text x="684" y="984" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 2 more columns</text>
+        <rect x="976" y="128" width="216" height="312" fill="#f5f5f5"/>
+        <rect x="976" y="128" width="216" height="312" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="976" y="128" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="976" y="160" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="976" y1="168" x2="1192" y2="168" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="992" y="144" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="992" y="160" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">jobs</text>
+        <text x="992" y="188" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="1176" y="188" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">char(12)</text>
+        <text x="992" y="208" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ user_id</text>
+        <text x="1176" y="208" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="992" y="228" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ workspace_id</text>
+        <text x="1176" y="228" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="992" y="248" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ data_batch_id</text>
+        <text x="1176" y="248" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid · null</text>
+        <text x="992" y="268" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ session_id</text>
+        <text x="1176" y="268" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="992" y="288" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ run_id</text>
+        <text x="1176" y="288" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="992" y="308" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">task</text>
+        <text x="1176" y="308" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="992" y="328" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">method</text>
+        <text x="1176" y="328" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="992" y="348" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">status</text>
+        <text x="1176" y="348" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="992" y="368" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">model</text>
+        <text x="1176" y="368" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="992" y="388" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">result</text>
+        <text x="1176" y="388" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">jsonb</text>
+        <text x="992" y="408" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">usage</text>
+        <text x="1176" y="408" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">jsonb</text>
+        <text x="992" y="428" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 14 more columns</text>
+        <rect x="976" y="480" width="216" height="172" fill="#f5f5f5"/>
+        <rect x="976" y="480" width="216" height="172" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="976" y="480" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="976" y="512" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="976" y1="520" x2="1192" y2="520" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="992" y="496" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="992" y="512" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">job_events</text>
+        <text x="992" y="540" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="1176" y="540" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">bigserial</text>
+        <text x="992" y="560" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ job_id</text>
+        <text x="1176" y="560" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">char(12)</text>
+        <text x="992" y="580" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">seq</text>
+        <text x="1176" y="580" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">int · uq(job_id,seq)</text>
+        <text x="992" y="600" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">ts</text>
+        <text x="1176" y="600" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">float</text>
+        <text x="992" y="620" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">type</text>
+        <text x="1176" y="620" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="992" y="640" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">payload</text>
+        <text x="1176" y="640" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">jsonb</text>
+        <rect x="976" y="692" width="216" height="212" fill="#f5f5f5"/>
+        <rect x="976" y="692" width="216" height="212" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="976" y="692" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="976" y="724" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="976" y1="732" x2="1192" y2="732" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="992" y="708" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="992" y="724" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">approvals</text>
+        <text x="992" y="752" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="1176" y="752" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">char(12)</text>
+        <text x="992" y="772" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ job_id</text>
+        <text x="1176" y="772" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">char(12)</text>
+        <text x="992" y="792" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ answered_by</text>
+        <text x="1176" y="792" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid · null</text>
+        <text x="992" y="812" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">status</text>
+        <text x="1176" y="812" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="992" y="832" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">question</text>
+        <text x="1176" y="832" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="992" y="852" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">answer</text>
+        <text x="1176" y="852" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="992" y="872" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">options</text>
+        <text x="1176" y="872" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">jsonb</text>
+        <text x="992" y="892" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 5 more columns</text>
+        <rect x="1264" y="128" width="216" height="232" fill="#f5f5f5"/>
+        <rect x="1264" y="128" width="216" height="232" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="1264" y="128" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="1264" y="160" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="1264" y1="168" x2="1480" y2="168" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="1280" y="144" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="1280" y="160" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">agent_sessions</text>
+        <text x="1280" y="188" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="1464" y="188" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="1280" y="208" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ user_id</text>
+        <text x="1464" y="208" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="1280" y="228" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ workspace_id</text>
+        <text x="1464" y="228" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="1280" y="248" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ job_id</text>
+        <text x="1464" y="248" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">char(12) · null</text>
+        <text x="1280" y="268" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">task</text>
+        <text x="1464" y="268" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="288" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">model</text>
+        <text x="1464" y="288" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="308" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">outcome</text>
+        <text x="1464" y="308" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="328" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">usage</text>
+        <text x="1464" y="328" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">jsonb</text>
+        <text x="1280" y="348" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 9 more columns</text>
+        <rect x="1264" y="400" width="216" height="172" fill="#f5f5f5"/>
+        <rect x="1264" y="400" width="216" height="172" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="1264" y="400" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="1264" y="432" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="1264" y1="440" x2="1480" y2="440" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="1280" y="416" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="1280" y="432" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">session_steps</text>
+        <text x="1280" y="460" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="1464" y="460" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">bigserial</text>
+        <text x="1280" y="480" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ session_id</text>
+        <text x="1464" y="480" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="1280" y="500" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">seq</text>
+        <text x="1464" y="500" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">int · uq(session,seq)</text>
+        <text x="1280" y="520" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">kind</text>
+        <text x="1464" y="520" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="540" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">ts</text>
+        <text x="1464" y="540" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">float</text>
+        <text x="1280" y="560" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">data</text>
+        <text x="1464" y="560" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">jsonb</text>
+        <rect x="1264" y="612" width="216" height="232" fill="#f5f5f5"/>
+        <rect x="1264" y="612" width="216" height="232" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="1264" y="612" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="1264" y="644" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="1264" y1="652" x2="1480" y2="652" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="1280" y="628" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="1280" y="644" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">search_runs</text>
+        <text x="1280" y="672" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="1464" y="672" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="692" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ user_id</text>
+        <text x="1464" y="692" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="1280" y="712" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ workspace_id</text>
+        <text x="1464" y="712" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">uuid</text>
+        <text x="1280" y="732" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">→ job_id</text>
+        <text x="1464" y="732" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">char(12) · null</text>
+        <text x="1280" y="752" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">status</text>
+        <text x="1464" y="752" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="772" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">best_metric</text>
+        <text x="1464" y="772" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">float</text>
+        <text x="1280" y="792" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">report_key</text>
+        <text x="1464" y="792" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="812" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">solution_key</text>
+        <text x="1464" y="812" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="832" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 11 more columns</text>
+        <rect x="1264" y="884" width="216" height="192" fill="#f5f5f5"/>
+        <rect x="1264" y="884" width="216" height="192" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="1264" y="884" width="216" height="40" rx="6" fill="rgba(45,49,66,0.04)"/>
+        <rect x="1264" y="916" width="216" height="8" fill="rgba(45,49,66,0.04)"/>
+        <line x1="1264" y1="924" x2="1480" y2="924" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+        <text x="1280" y="900" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">TABLE</text>
+        <text x="1280" y="916" fill="#2d3142" font-size="14" font-weight="600" font-family="'Geist', system-ui, sans-serif">search_nodes</text>
+        <text x="1280" y="944" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># → run_id</text>
+        <text x="1464" y="944" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="964" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace"># id</text>
+        <text x="1464" y="964" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="984" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">~ parent_id</text>
+        <text x="1464" y="984" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text · self</text>
+        <text x="1280" y="1004" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">step</text>
+        <text x="1464" y="1004" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">int</text>
+        <text x="1280" y="1024" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">stage</text>
+        <text x="1464" y="1024" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">text</text>
+        <text x="1280" y="1044" fill="#2d3142" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">metric</text>
+        <text x="1464" y="1044" fill="#4f5d75" font-size="10" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">float</text>
+        <text x="1280" y="1064" fill="#5a6580" font-size="10" font-family="'Geist Mono', ui-monospace, monospace">+ 9 more columns</text>
+        <text x="100" y="916" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">user_id is also stamped on jobs,</text>
+        <text x="100" y="934" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">approvals (answered_by),</text>
+        <text x="100" y="952" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">agent_sessions and search_runs;</text>
+        <text x="100" y="970" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">those lines are omitted so the</text>
+        <text x="100" y="988" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">users hub stays legible.</text>
+        <text x="976" y="976" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">Deletes cascade along every FK,</text>
+        <text x="976" y="994" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">except job_id on agent_sessions</text>
+        <text x="976" y="1012" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">and search_runs (SET NULL) and</text>
+        <text x="976" y="1030" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">answered_by / data_batch_id</text>
+        <text x="976" y="1048" fill="#2d3142" font-size="13" font-style="italic" font-family="'Instrument Serif', serif">(no action).</text>
+        <line x1="30" y1="1128" x2="1518" y2="1128" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="30" y="1144" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.18em">LEGEND</text>
+        <rect x="30" y="1160" width="14" height="10" rx="2" fill="rgba(191,69,32,0.04)" stroke="#bf4520" stroke-width="1"/>
+        <text x="50" y="1168" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Hub table (owner of everything)</text>
+        <rect x="239.20000000000002" y="1160" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="259.20000000000005" y="1168" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Table</text>
+        <rect x="313.20000000000005" y="1160" width="14" height="10" rx="2" fill="#ffffff" stroke="#4f5d75" stroke-width="1" stroke-dasharray="3,2"/>
+        <text x="333.20000000000005" y="1168" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Append-only ledger</text>
+        <text x="454.80000000000007" y="1168" fill="#2d3142" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace">#</text>
+        <text x="469.30000000000007" y="1168" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Primary key</text>
+        <text x="554.5000000000001" y="1168" fill="#2d3142" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace">→</text>
+        <text x="569.0000000000001" y="1168" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Foreign key (drawn as a line)</text>
+        <text x="747.8000000000002" y="1168" fill="#5a6580" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace">~</text>
+        <text x="762.3000000000002" y="1168" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Reference without FK constraint</text>
+        <text x="951.5000000000002" y="1168" fill="#4f5d75" font-size="10" font-weight="600" font-family="'Geist Mono', ui-monospace, monospace">1 / N / 0..1</text>
+        <text x="1037.5000000000002" y="1168" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Cardinality (0..1 = nullable FK)</text>
+        <text x="1231.9" y="1168" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Zones = sections of swarn_backend/db/models.py</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

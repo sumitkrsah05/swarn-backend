@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swarn backend · how a job runs the agent</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #f5f5f5; --paper-2: #ececec; --ink: #2d3142; --muted: #4f5d75; --soft: #5a6580;
+      --rule: rgba(45,49,66,0.12); --accent: #bf4520; --accent-tint: rgba(191,69,32,0.08); --link: #2e5aa8;
+      --sans: 'Geist', system-ui, sans-serif; --serif: 'Instrument Serif', serif; --mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--sans); background: var(--paper); color: var(--ink); padding: 3rem 2rem; min-height: 100vh; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .eyebrow { font-family: var(--mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; }
+    h1 { font-family: var(--serif); font-size: clamp(1.75rem, 3vw + 1rem, 2.5rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 0.6rem; }
+    .subtitle { font-size: 1rem; line-height: 1.55; color: var(--muted); max-width: 60ch; }
+    section { margin-top: 3.25rem; }
+    h2 { font-family: var(--serif); font-size: 1.6rem; font-weight: 400; letter-spacing: -0.015em; margin-bottom: 0.5rem; }
+    .lede { color: var(--muted); line-height: 1.55; max-width: 68ch; margin-bottom: 1.25rem; font-size: 0.95rem; }
+    p, li { line-height: 1.55; }
+    code { font-family: var(--mono); font-size: 0.85em; background: var(--paper-2); padding: 0.05em 0.35em; border-radius: 3px; }
+    .diagram-container { width: 100%; overflow-x: auto; }
+    svg { width: 100%; display: block; }
+    @media print { .diagram-container { overflow-x: visible; } svg { min-width: 0 !important; } }
+    .callout { font-family: var(--serif); font-style: italic; font-size: 1.05rem; color: var(--ink); border-left: 2px solid var(--accent); padding: 0.2rem 0 0.2rem 1rem; margin: 1.25rem 0; max-width: 60ch; }
+    .steps { counter-reset: s; list-style: none; max-width: 72ch; margin-top: 1rem; }
+    .steps li { counter-increment: s; display: grid; grid-template-columns: 2rem 1fr; gap: 0.5rem; padding: 0.55rem 0; border-top: 1px solid var(--rule); font-size: 0.92rem; }
+    .steps li::before { content: counter(s, decimal-leading-zero); font-family: var(--mono); color: var(--accent); font-size: 0.75rem; padding-top: 0.2rem; }
+    .steps li:last-child { border-bottom: 1px solid var(--rule); }
+    .cards { display: grid; grid-template-columns: 1.15fr 1fr 0.95fr; gap: 1rem; margin-top: 1.25rem; }
+    .cards.two { grid-template-columns: 1fr 1.1fr; }
+    .card { background: #ffffff; border: 1px solid var(--rule); border-radius: 6px; padding: 1.25rem; }
+    .card.focal { border-color: var(--accent); background: var(--accent-tint); }
+    .card .eyebrow { margin-bottom: 0.5rem; font-size: 0.6rem; }
+    .card h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .card p { font-size: 0.86rem; color: var(--muted); }
+    .card p + p { margin-top: 0.5rem; }
+    .card .because { color: var(--ink); }
+    .card .because::before { content: "Because "; font-family: var(--serif); font-style: italic; color: var(--accent); }
+    table { border-collapse: collapse; width: 100%; font-size: 0.86rem; margin-top: 1rem; }
+    th { text-align: left; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--muted); }
+    td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+    td:first-child { font-family: var(--mono); font-size: 0.8rem; white-space: nowrap; }
+    .grid2 { display: grid; grid-template-columns: 0.9fr 1.4fr; gap: 1.5rem; }
+    .grid2 table.ev td:first-child { white-space: normal; width: 44%; }
+    .ladder { display: grid; grid-template-columns: 5.5rem 1fr; row-gap: 0.45rem; column-gap: 1rem; font-family: var(--mono); font-size: 0.8rem; line-height: 1.5; color: var(--ink); background: #ffffff; border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.25rem; margin-top: 1rem; max-width: 76ch; }
+    .ladder b { color: var(--accent); font-weight: 600; }
+    .files td:first-child { color: var(--ink); }
+    @media (max-width: 760px) { .cards, .cards.two, .grid2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <p class="eyebrow">Design note · swarn backend · jobs</p>
+    <h1>How a job runs the agent, and why it runs it this way</h1>
+    <p class="subtitle">The API never imports the agent. It starts one short-lived worker process per job, hands it a spec on stdin, and reads a stream of JSON events back on stdout. This page shows the moving parts, one job's lifetime, the pipe protocol, and the reasons behind each choice.</p>
+  </header>
+
+  <section>
+    <h2>1 · The shape</h2>
+    <p class="lede">Two kinds of process. The API process is long-lived and owns the queue, the database, object storage, and the browser connection. A worker process lives exactly as long as one job and is the only place the <code>agent.*</code> package is ever imported.</p>
+    <div class="diagram-container"><svg viewBox="0 0 1000 500" style="min-width:1000px" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="arch-title arch-desc">
+<title id="arch-title">Processes and what connects them</title>
+<desc id="arch-desc">The API process holds the supervisor; each job gets its own worker subprocess that imports the agent2 engines; Postgres, MinIO and a local staging directory sit underneath.</desc>
+<defs>
+  <marker id="arch-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+  <marker id="arch-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+  <marker id="arch-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+  <marker id="arch-arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+  <marker id="arch-arrow-start" markerWidth="8" markerHeight="6" refX="1" refY="3" orient="auto"><polygon points="8 0, 0 3, 8 6" fill="#4f5d75"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#f5f5f5"/>
+<rect x="250" y="72" width="390" height="108" rx="8" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+<text x="262" y="88" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">API PROCESS · ONE PER SERVER</text>
+<rect x="690" y="72" width="270" height="228" rx="8" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.12)" stroke-width="0.8"/>
+<text x="702" y="88" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">WORKER SUBPROCESS · ONE PER JOB</text>
+<line x1="200" y1="130" x2="270" y2="130" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arch-arrow-link)"/>
+<rect x="201.0" y="112" width="68" height="12" rx="2" fill="#f5f5f5"/>
+<text x="235" y="121" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">POST /JOBS</text>
+<line x1="400" y1="130" x2="460" y2="130" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arch-arrow)"/>
+<rect x="405.0" y="112" width="50" height="12" rx="2" fill="#ececec"/>
+<text x="430" y="121" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">ENQUEUE</text>
+<line x1="620" y1="118" x2="710" y2="118" stroke="#bf4520" stroke-width="1.2" marker-end="url(#arch-arrow-accent)"/>
+<rect x="625.0" y="100" width="80" height="12" rx="2" fill="#f5f5f5"/>
+<text x="665" y="109" fill="#bf4520" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">STDIN · SPEC</text>
+<line x1="710" y1="142" x2="620" y2="142" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arch-arrow-open)"/>
+<rect x="622.0" y="150" width="86" height="12" rx="2" fill="#f5f5f5"/>
+<text x="665" y="159" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">STDOUT EVENTS</text>
+<line x1="825" y1="160" x2="825" y2="220" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arch-arrow)"/>
+<rect x="839.0" y="184" width="38" height="12" rx="2" fill="#ececec"/>
+<text x="858" y="193" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">RUN()</text>
+<path d="M500,160 V292 Q500,300 492,300 H388 Q380,300 380,308 V340" stroke="#4f5d75" fill="none" stroke-width="1.2" marker-end="url(#arch-arrow)"/>
+<rect x="406.0" y="282" width="68" height="12" rx="2" fill="#f5f5f5"/>
+<text x="440" y="291" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">JOB EVENTS</text>
+<line x1="335" y1="160" x2="335" y2="340" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arch-arrow)"/>
+<rect x="343.0" y="244" width="50" height="12" rx="2" fill="#f5f5f5"/>
+<text x="368" y="253" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">JOB ROW</text>
+<line x1="580" y1="160" x2="580" y2="340" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arch-arrow)"/>
+<rect x="517.0" y="244" width="62" height="12" rx="2" fill="#f5f5f5"/>
+<text x="548" y="253" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">GET · PUT</text>
+<path d="M600,160 V302 Q600,310 608,310 H752 Q760,310 760,318 V340" stroke="#4f5d75" fill="none" stroke-width="1.2" marker-end="url(#arch-arrow)"/>
+<rect x="643.0" y="316" width="74" height="12" rx="2" fill="#f5f5f5"/>
+<text x="680" y="325" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">PULL · PUSH</text>
+<line x1="825" y1="280" x2="825" y2="340" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arch-arrow)"/>
+<rect x="833.0" y="304" width="38" height="12" rx="2" fill="#f5f5f5"/>
+<text x="852" y="313" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">FILES</text>
+<path d="M540,100 V56 Q540,48 532,48 H128 Q120,48 120,56 V100" stroke="#4f5d75" fill="none" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arch-arrow-open)"/>
+<rect x="278.0" y="30" width="104" height="12" rx="2" fill="#f5f5f5"/>
+<text x="330" y="39" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">WEBSOCKET · LIVE</text>
+<rect x="40" y="100" width="160" height="60" fill="#f5f5f5"/>
+<rect x="40" y="100" width="160" height="60" rx="6" fill="#ffffff" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="52" y="114" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">CLIENT</text>
+<text x="52" y="130" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif">Browser / CLI</text>
+<text x="52" y="146" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace">swarn-frontend</text>
+<rect x="270" y="100" width="130" height="60" fill="#f5f5f5"/>
+<rect x="270" y="100" width="130" height="60" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="282" y="114" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">HTTP</text>
+<text x="282" y="130" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif">FastAPI routes</text>
+<text x="282" y="146" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace">api/jobs.py</text>
+<rect x="460" y="100" width="160" height="60" fill="#f5f5f5"/>
+<rect x="460" y="100" width="160" height="60" rx="6" fill="rgba(191,69,32,0.06)" stroke="#bf4520" stroke-width="1"/>
+<text x="472" y="114" fill="#bf4520" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">ASYNCIO · QUEUE</text>
+<text x="472" y="130" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif">Supervisor</text>
+<text x="472" y="146" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace">jobs/supervisor.py</text>
+<rect x="710" y="100" width="230" height="60" fill="#f5f5f5"/>
+<rect x="710" y="100" width="230" height="60" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="722" y="114" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">PYTHON -M SWARN_BACKEND.WORKER</text>
+<text x="722" y="130" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif">JobRunner</text>
+<text x="722" y="146" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace">worker/runner.py</text>
+<rect x="710" y="220" width="230" height="60" fill="#f5f5f5"/>
+<rect x="710" y="220" width="230" height="60" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="722" y="234" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">../AGENT2 · EDITABLE INSTALL</text>
+<text x="722" y="250" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif">agent2 engines</text>
+<text x="722" y="266" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace">AgentLoop · Orchestrator · run_search</text>
+<rect x="270" y="340" width="130" height="60" fill="#f5f5f5"/>
+<rect x="270" y="340" width="130" height="60" rx="6" fill="rgba(45,49,66,0.04)" stroke="#4f5d75" stroke-width="1"/>
+<text x="282" y="354" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">STORE</text>
+<text x="282" y="370" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif">Postgres</text>
+<text x="282" y="386" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace">jobs · job_events · …</text>
+<rect x="460" y="340" width="160" height="60" fill="#f5f5f5"/>
+<rect x="460" y="340" width="160" height="60" rx="6" fill="rgba(45,49,66,0.04)" stroke="#4f5d75" stroke-width="1"/>
+<text x="472" y="354" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">STORE</text>
+<text x="472" y="370" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif">MinIO</text>
+<text x="472" y="386" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace">workspace objects</text>
+<rect x="710" y="340" width="230" height="60" fill="#f5f5f5"/>
+<rect x="710" y="340" width="230" height="60" rx="6" fill="rgba(45,49,66,0.04)" stroke="#4f5d75" stroke-width="1"/>
+<text x="722" y="354" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">SWARN_DATA_ROOT</text>
+<text x="722" y="370" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif">Staging directory</text>
+<text x="722" y="386" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace">./work/&lt;job_id&gt;/  (local disk)</text>
+<line x1="30" y1="440" x2="970" y2="440" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<text x="30" y="456" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.18em">LEGEND</text>
+<line x1="30" y1="476" x2="50" y2="476" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arch-arrow)"/>
+<text x="58" y="479" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Call / data movement</text>
+<line x1="180" y1="476" x2="200" y2="476" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arch-arrow-open)"/>
+<text x="208" y="479" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">One-way stream (async)</text>
+<line x1="340" y1="476" x2="360" y2="476" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arch-arrow-link)"/>
+<text x="368" y="479" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">HTTP</text>
+<rect x="420" y="470" width="20" height="12" rx="2" fill="rgba(191,69,32,0.06)" stroke="#bf4520"/>
+<text x="448" y="479" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The one piece that owns a job's life</text>
+<rect x="650" y="470" width="20" height="12" rx="2" fill="rgba(45,49,66,0.04)" stroke="#4f5d75"/>
+<text x="678" y="479" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Storage</text>
+</svg></div>
+    <p class="callout">The supervisor is the only object that knows a job from queued to finished. Everything else either asks it (routes) or reports to it (the worker).</p>
+  </section>
+
+  <section>
+    <h2>2 · One job, start to finish</h2>
+    <p class="lede">Time flows down. The loop in the middle is where the job spends almost all of its life: the engine takes a step, the worker turns it into an event, the API stores it and pushes it to the browser.</p>
+    <div class="diagram-container"><svg viewBox="0 0 1000 700" style="min-width:1000px" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="seq-title seq-desc">
+<title id="seq-title">One job, start to finish</title>
+<desc id="seq-desc">A job is submitted over HTTP, staged from MinIO, run in a worker subprocess that calls agent2, streamed back as events and WebSocket frames, then pushed back and finalised.</desc>
+<defs>
+  <marker id="seq-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+  <marker id="seq-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+  <marker id="seq-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+  <marker id="seq-arrow-open" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polyline points="0 0, 8 3, 0 6" fill="none" stroke="#4f5d75" stroke-width="1.2"/></marker>
+  <marker id="seq-arrow-start" markerWidth="8" markerHeight="6" refX="1" refY="3" orient="auto"><polygon points="8 0, 0 3, 8 6" fill="#4f5d75"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#f5f5f5"/>
+<line x1="100" y1="80" x2="100" y2="604" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="300" y1="80" x2="300" y2="604" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="500" y1="80" x2="500" y2="604" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="700" y1="80" x2="700" y2="604" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+<line x1="900" y1="80" x2="900" y2="604" stroke="rgba(45,49,66,0.20)" stroke-width="1" stroke-dasharray="3,3"/>
+<rect x="76" y="258" width="648" height="172" rx="4" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+<rect x="76" y="258" width="44" height="16" rx="2" fill="#f5f5f5" stroke="rgba(45,49,66,0.22)" stroke-width="1"/>
+<text x="98" y="270" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">LOOP</text>
+<text x="88" y="292" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.04em">[each step until done or cancel]</text>
+<rect x="296" y="120" width="8" height="460" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+<rect x="496" y="192" width="8" height="308" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+<rect x="696" y="228" width="8" height="236" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+<line x1="100" y1="120" x2="296" y2="120" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#seq-arrow-link)"/>
+<rect x="166.0" y="102" width="68" height="12" rx="2" fill="#f5f5f5"/>
+<text x="200.0" y="111" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">POST /JOBS</text>
+<line x1="304" y1="156" x2="900" y2="156" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#seq-arrow)"/>
+<rect x="354.0" y="138" width="92" height="12" rx="2" fill="#f5f5f5"/>
+<text x="400" y="147" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">PULL WORKSPACE</text>
+<line x1="304" y1="192" x2="496" y2="192" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#seq-arrow)"/>
+<rect x="360.0" y="174" width="80" height="12" rx="2" fill="#f5f5f5"/>
+<text x="400.0" y="183" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">SPAWN · SPEC</text>
+<line x1="504" y1="228" x2="696" y2="228" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#seq-arrow)"/>
+<rect x="563.0" y="210" width="74" height="12" rx="2" fill="#f5f5f5"/>
+<text x="600.0" y="219" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">ENV · RUN()</text>
+<line x1="696" y1="312" x2="504" y2="312" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#seq-arrow)"/>
+<rect x="569.0" y="294" width="62" height="12" rx="2" fill="#f5f5f5"/>
+<text x="600.0" y="303" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">CALLBACKS</text>
+<line x1="496" y1="348" x2="304" y2="348" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#seq-arrow-open)"/>
+<rect x="357.0" y="330" width="86" height="12" rx="2" fill="#f5f5f5"/>
+<text x="400.0" y="339" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">STDOUT EVENTS</text>
+<line x1="296" y1="384" x2="100" y2="384" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#seq-arrow-open)"/>
+<rect x="172.0" y="366" width="56" height="12" rx="2" fill="#f5f5f5"/>
+<text x="200.0" y="375" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">WS FRAME</text>
+<line x1="100" y1="420" x2="496" y2="420" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#seq-arrow)"/>
+<rect x="157.0" y="402" width="86" height="12" rx="2" fill="#f5f5f5"/>
+<text x="200" y="411" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">APPROVE (API)</text>
+<line x1="696" y1="464" x2="504" y2="464" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#seq-arrow)"/>
+<rect x="578.0" y="446" width="44" height="12" rx="2" fill="#f5f5f5"/>
+<text x="600.0" y="455" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">RESULT</text>
+<line x1="496" y1="500" x2="304" y2="500" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#seq-arrow)"/>
+<rect x="357.0" y="482" width="86" height="12" rx="2" fill="#f5f5f5"/>
+<text x="400.0" y="491" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">DONE {STATUS}</text>
+<line x1="304" y1="536" x2="900" y2="536" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#seq-arrow)"/>
+<rect x="360.0" y="518" width="80" height="12" rx="2" fill="#f5f5f5"/>
+<text x="400" y="527" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">PUSH OUTPUTS</text>
+<line x1="296" y1="572" x2="100" y2="572" stroke="#bf4520" stroke-width="1.2" marker-end="url(#seq-arrow-accent)"/>
+<rect x="172.0" y="554" width="56" height="12" rx="2" fill="#f5f5f5"/>
+<text x="200.0" y="563" fill="#bf4520" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">COMPLETE</text>
+<rect x="35.0" y="36" width="130" height="44" fill="#f5f5f5"/>
+<rect x="35.0" y="36" width="130" height="44" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="100" y="54" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Browser</text>
+<text x="100" y="70" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">swarn-frontend</text>
+<rect x="235.0" y="36" width="130" height="44" fill="#f5f5f5"/>
+<rect x="235.0" y="36" width="130" height="44" rx="6" fill="rgba(191,69,32,0.06)" stroke="#bf4520" stroke-width="1"/>
+<text x="300" y="54" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">API process</text>
+<text x="300" y="70" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">routes + supervisor</text>
+<rect x="435.0" y="36" width="130" height="44" fill="#f5f5f5"/>
+<rect x="435.0" y="36" width="130" height="44" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="500" y="54" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Worker</text>
+<text x="500" y="70" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">runner.py</text>
+<rect x="635.0" y="36" width="130" height="44" fill="#f5f5f5"/>
+<rect x="635.0" y="36" width="130" height="44" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="700" y="54" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">agent2</text>
+<text x="700" y="70" fill="#4f5d75" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">engine</text>
+<rect x="825.0" y="36" width="150" height="44" fill="#f5f5f5"/>
+<rect x="825.0" y="36" width="150" height="44" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="900" y="62" fill="#2d3142" font-size="13" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Postgres · MinIO</text>
+<line x1="30" y1="636" x2="970" y2="636" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<text x="30" y="652" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.18em">LEGEND</text>
+<line x1="30" y1="672" x2="50" y2="672" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#seq-arrow)"/>
+<text x="58" y="675" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Call</text>
+<line x1="110" y1="672" x2="130" y2="672" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#seq-arrow)"/>
+<text x="138" y="675" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Return</text>
+<line x1="200" y1="672" x2="220" y2="672" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#seq-arrow-open)"/>
+<text x="228" y="675" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">One-way event</text>
+<line x1="330" y1="672" x2="350" y2="672" stroke="#bf4520" stroke-width="1.2" marker-end="url(#seq-arrow-accent)"/>
+<text x="358" y="675" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The job's final answer</text>
+<rect x="506" y="666" width="8" height="12" fill="rgba(45,49,66,0.06)" stroke="#4f5d75" stroke-width="0.8"/>
+<text x="528" y="675" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Holding control</text>
+<rect x="630" y="666" width="20" height="12" rx="2" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.22)"/>
+<text x="658" y="675" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Repeats while the job runs</text>
+</svg></div>
+    <ol class="steps">
+      <li><span><code>POST /jobs</code> validates the request, writes a <code>jobs</code> row with status <code>queued</code>, and calls <code>Supervisor.enqueue(job_id)</code>. The HTTP response returns immediately.</span></li>
+      <li><span>The dispatch task takes the id off the queue and waits for a slot (a semaphore sized by <code>job_concurrency</code>, default 2). Only then does the job start.</span></li>
+      <li><span><code>staging.pull</code> creates <code>./work/&lt;job_id&gt;/</code> and downloads the workspace's files, prior sessions, datasets and knowledge from MinIO into the layout agent2 expects.</span></li>
+      <li><span>The supervisor runs <code>python -m swarn_backend.worker</code> with pipes on stdin, stdout and stderr, in its own session group, with the staging directory as the working directory. The first stdin line is the <code>WorkerSpec</code> JSON.</span></li>
+      <li><span>The worker sets every <code>SWARN_*</code> path variable to the staging directory, redirects <code>sys.stdout</code> to stderr, and only then imports agent2. <code>JobRunner.run</code> picks the engine from <code>spec["method"]</code>: react, team, aide, or eval.</span></li>
+      <li><span>Before calling the engine the runner wires three hooks: a subscriber on agent2's session store (every step becomes a <code>session_step</code> event), a wrapped <code>ApprovalBroker</code> (questions become <code>approval_request</code> events), and a usage listener (token counts every half second).</span></li>
+      <li><span>The supervisor reads stdout line by line. Each event is appended to <code>job_events</code> or the matching record table, then forwarded on the user's WebSocket as a <code>channel: "job"</code> or <code>channel: "session"</code> frame.</span></li>
+      <li><span>Approvals and cancels travel the other way: the browser calls the API, the API writes a command line to the worker's stdin, and a reader thread inside the worker hands it to the broker or sets the stop event.</span></li>
+      <li><span>When the engine returns, the worker emits one final <code>done</code> event with status, result, and usage, then exits. The supervisor's <code>_finalize</code> pushes the staging directory back to MinIO, records sessions and search runs, writes a <code>usage_events</code> row, sets the job's terminal status, and deletes the directory.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>3 · The pipe protocol</h2>
+    <p class="lede">Everything between the two processes is newline-delimited JSON. Defined in <code>jobs/protocol.py</code>; the worker side lives in <code>worker/io.py</code>.</p>
+    <div class="grid2">
+      <div>
+        <table>
+          <thead><tr><th>stdin · API → worker</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>WorkerSpec</td><td>First line only. Job id, method, task, model, steps, data dir, sessions to resume, workspace and user ids, the staging root, the <code>SWARN_*</code> environment, eval options.</td></tr>
+            <tr><td>{"c":"approve"}</td><td>Answer to a pending approval, by request id.</td></tr>
+            <tr><td>{"c":"cancel"}</td><td>Stop cooperatively. EOF on stdin counts as cancel too.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <table class="ev">
+          <thead><tr><th>stdout · worker → API</th><th>Becomes</th></tr></thead>
+          <tbody>
+            <tr><td>session / session_step / session_closed</td><td><code>agent_sessions</code> and <code>session_steps</code> rows; session frames on the WebSocket.</td></tr>
+            <tr><td>usage</td><td><code>jobs.usage</code> snapshot; a job event.</td></tr>
+            <tr><td>node</td><td>AIDE only. <code>search_runs</code> and <code>search_nodes</code> rows; a job event.</td></tr>
+            <tr><td>approval_request / approval_resolved / approval_nack</td><td><code>approvals</code> rows; the approval card in the UI; the API's 2 second acknowledgement wait.</td></tr>
+            <tr><td>artifact_files / dataset_dumped</td><td>Uploaded to MinIO straight away as <code>files</code> and <code>datasets</code> rows, so results are visible before the job ends.</td></tr>
+            <tr><td>progress / log</td><td>A job event, or a line in the API log.</td></tr>
+            <tr><td>done</td><td>The terminal status, result, error, usage and run id. Always the last line.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · Why a subprocess, and why this shape</h2>
+    <p class="lede">Each choice below answers a constraint that agent2 or the hosted setting imposes. The first one is the one that forces all the others.</p>
+    <div class="cards">
+      <div class="card focal">
+        <p class="eyebrow">The forcing constraint</p>
+        <h3>agent2 fixes its paths at import time</h3>
+        <p>Its <code>paths</code> module reads <code>SWARN_DATA_ROOT</code> and friends once, when first imported. A single API process could only ever point at one directory.</p>
+        <p class="because">every job needs its own directory, every job needs its own interpreter. The worker's main sets the environment, then imports. The order is the whole trick.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Isolation</p>
+        <h3>A bad job cannot take the API down</h3>
+        <p>Engines pull in Docker sandboxes, Chroma, pandas, matplotlib, and long-running LLM loops. Crashes, leaks and hangs stay inside the worker.</p>
+        <p class="because">the API only sees an exit code and a stderr tail, it can always record a clean <code>failed</code> status and move on to the next slot.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Fresh state</p>
+        <h3>No state leaks between jobs</h3>
+        <p>Dataset registries, session stores, usage trackers and thread-local brokers are process globals in agent2.</p>
+        <p class="because">the process ends with the job, nothing has to be reset, and two users' jobs can never see each other's frames.</p>
+      </div>
+    </div>
+    <div class="cards two" style="margin-top:1rem">
+      <div class="card">
+        <p class="eyebrow">Local disk, remote truth</p>
+        <h3>Pull, run, push</h3>
+        <p>agent2 is file-based: <code>workspace/</code>, <code>sessions/</code>, <code>runs/</code>, <code>knowledge/</code>. MinIO is the durable store and Postgres the index.</p>
+        <p class="because">the engine is never taught about object storage, the staging directory gives it the filesystem it already understands, and <code>push</code> reconciles afterwards. Files and datasets the engine produces mid-run are uploaded immediately from events, so a crash loses the directory but not what was already reported. Failed directories can be kept with <code>keep_failed_workdirs</code>; stale ones older than a day are swept at startup.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Transport</p>
+        <h3>Plain pipes, newline JSON</h3>
+        <p>No broker, no Redis, no HTTP callback. The worker's real stdout is duplicated for the protocol and <code>sys.stdout</code> is pointed at stderr, so any print inside an engine lands in the API log instead of corrupting the stream.</p>
+        <p class="because">stdin and stdout exist the moment the child starts, ordering is guaranteed, back-pressure is free, and a dead parent shows up as EOF, which the worker treats as cancel. Lines over 64 MB are dropped rather than killing the reader.</p>
+      </div>
+    </div>
+    <div class="cards" style="margin-top:1rem">
+      <div class="card">
+        <p class="eyebrow">Live and durable at once</p>
+        <h3>Every event is a row and a frame</h3>
+        <p>The supervisor appends each event to <code>job_events</code> with a per-job sequence number, then pushes it over the WebSocket.</p>
+        <p class="because">a browser that reconnects can replay from <code>GET /jobs/{id}?since=</code>, and the record is complete even if nobody was watching.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Humans in the loop</p>
+        <h3>Approvals cross the pipe both ways</h3>
+        <p>The runner subclasses agent2's <code>ApprovalBroker</code> so a parked question is emitted as an event and its resolution is announced however it was answered. <code>SWARN_AUTO_APPROVE</code> is stripped from the worker's environment.</p>
+        <p class="because">the approval card is the product. The API waits up to 2 seconds for the worker's acknowledgement and tells the caller if the engine was no longer waiting.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Backpressure and restarts</p>
+        <h3>A queue, a semaphore, and stale-job recovery</h3>
+        <p>One dispatch task, <code>job_concurrency</code> slots, one asyncio task per running child.</p>
+        <p class="because">workers are not tracked outside the API process, a restart marks every <code>running</code> job as <code>failed · server restarted</code> instead of pretending it might finish.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:2rem; font-size:1rem; font-weight:600">The cancel ladder</h3>
+    <p class="lede" style="margin-bottom:0">Cancellation is cooperative first and forceful last, because a cooperative stop lets the engine close its sandbox and write its trace.</p>
+    <div class="ladder">
+      <b>0 s</b><span>API writes <code>{"c":"cancel"}</code> to stdin → stop event set, broker released</span>
+      <b>≤ 60 s</b><span>wait for the child to exit on its own (<code>cancel_grace_s</code>)</span>
+      <b>then</b><span>SIGTERM to the worker's process group</span>
+      <b>+ 10 s</b><span>SIGKILL</span>
+      <b>always</b><span><code>_finalize</code> runs: push what exists, status <code>cancelled</code>, directory removed</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>5 · Where to look</h2>
+    <table class="files">
+      <thead><tr><th>File</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td>swarn_backend/api/jobs.py</td><td>HTTP entry points: submit, list, detail with replay, approve, cancel. Talks only to the supervisor.</td></tr>
+        <tr><td>swarn_backend/jobs/supervisor.py</td><td>Queue, slots, spawn, event loop, finalisation, cancel ladder, stale-job recovery. The file to change for scheduling or recording behaviour.</td></tr>
+        <tr><td>swarn_backend/jobs/protocol.py</td><td>WorkerSpec and the event and command vocabulary shared by both sides.</td></tr>
+        <tr><td>swarn_backend/jobs/staging.py</td><td>Pull from MinIO into <code>./work/&lt;job&gt;</code>, upload mid-run artifacts, push back and reconcile rows.</td></tr>
+        <tr><td>swarn_backend/worker/__main__.py</td><td>Read spec, set <code>SWARN_*</code> environment, create directories, then import and run. Order matters.</td></tr>
+        <tr><td>swarn_backend/worker/io.py</td><td>Thread-safe event emitter on the real stdout; stdin command reader thread; stdout hijack.</td></tr>
+        <tr><td>swarn_backend/worker/runner.py</td><td>The only place agent2 is called: <code>run_react</code>, <code>run_team</code>, <code>run_aide</code>, hooks for sessions, approvals and usage. The file to change for what a job does.</td></tr>
+        <tr><td>swarn_backend/worker/registry.py</td><td>Restores agent2's in-memory dataset registry from parquet at start and dumps changed frames at the end.</td></tr>
+        <tr><td>../agent2 (package <code>swarn</code>)</td><td>The engines themselves, installed editable from the sibling checkout. Same interpreter unless <code>worker_python</code> is set.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+</body>
+</html>
