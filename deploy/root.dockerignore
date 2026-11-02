@@ -1,6 +1,15 @@
 # Copy to the folder that holds agent2/, swarn-backend/ and swarn-frontend/
 # (the compose build context) as `.dockerignore`, otherwise every build
 # ships the virtualenvs, node_modules and old runs (tens of GB) to Docker.
+#
+# Order matters: Docker applies the LAST matching rule, and a rule that matches
+# a parent folder counts. The allow-list must come first so the exclusions
+# below still win inside the three repos.
+*
+!agent2
+!swarn-backend
+!swarn-frontend
+
 **/.git
 **/.venv
 **/venv
@@ -10,6 +19,9 @@
 **/*.pyc
 **/.pytest_cache
 **/.ruff_cache
+**/.agents
+**/.claude
+**/.github
 **/.env
 **/.env.*
 !**/.env.example

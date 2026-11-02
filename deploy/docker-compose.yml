@@ -65,13 +65,18 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:latest
+    # The community minio/minio image is no longer published; AIStor is the
+    # maintained build and needs a (free) SUBNET license file next to this
+    # compose file: deploy/minio.license (same file the laptop container uses).
+    image: quay.io/minio/aistor/minio:RELEASE.2026-09-19T17-05-25Z
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    command: server /data --license /minio.license
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
-    volumes: [minio-data:/data]
+    volumes:
+      - minio-data:/data
+      - ./minio.license:/minio.license:ro
 
 volumes:
   pgdata:

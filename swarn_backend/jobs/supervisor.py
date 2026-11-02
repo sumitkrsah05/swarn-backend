@@ -72,6 +72,13 @@ class Supervisor:
     async def start(self) -> None:
         await self._recover_stale()
         self.settings.work_path.mkdir(parents=True, exist_ok=True)
+        probe = self.settings.work_path / ".write-probe"
+        try:
+            probe.touch()
+            probe.unlink()
+        except OSError as exc:
+            log.error("work dir %s is not writable (%s); every job will fail until it is "
+                      "(chown it to this process's uid)", self.settings.work_path, exc)
         self._dispatch_task = asyncio.create_task(self._dispatch(), name="job-dispatch")
 
     async def stop(self) -> None:
@@ -176,7 +183,14 @@ class Supervisor:
                 await db.commit()
                 await self._fail_early(job_id, "workspace no longer exists")
                 return
-            workdir = staging.new_workdir(self.settings, job.id)
+            try:
+                workdir = staging.new_workdir(self.settings, job.id)
+            except OSError as exc:
+                log.exception("job %s: cannot create work directory", job.id)
+                await db.commit()
+                await self._fail_early(job_id, f"cannot create work directory "
+                                               f"{self.settings.work_path}: {exc}")
+                return
             try:
                 manifest = await staging.pull(db, self.store, self.settings, job, ws, workdir)
             except Exception as exc:  # noqa: BLE001

@@ -25,6 +25,10 @@ dependencies = [
     "numpy>=1.26.0",
     # the agent engines; the worker process imports them, the API never does
     "swarn",
+    # declared here only so [tool.uv.sources] can pin them to the CPU wheels
+    # (uv applies sources to direct dependencies, not to swarn's transitive ones)
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +43,15 @@ swarn-backend = "swarn_backend.cli:main"
 
 [tool.uv.sources]
 swarn = { path = "../agent2", editable = true }
+# CPU-only torch: the LLM is remote and the embedding models are tiny, while the
+# CUDA wheels add ~4 GB of nvidia-*/triton packages to every venv and image.
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.setuptools.packages.find]
 include = ["swarn_backend*"]

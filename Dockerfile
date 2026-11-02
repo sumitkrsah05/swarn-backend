@@ -14,15 +14,19 @@ RUN apt-get update \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-WORKDIR /app
-COPY agent2 /app/agent2
-COPY swarn-backend /app/swarn-backend
-WORKDIR /app/swarn-backend
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev || uv sync --no-dev
-
+# Create the runtime user first and copy/install as that user. A separate
+# `chown -R` layer would re-copy the whole multi-GB venv into a new layer
+# (doubling the image and taking an hour on slow disks).
 RUN useradd --create-home --uid 1000 app && mkdir -p /var/lib/swarn/work \
- && chown -R app:app /app /var/lib/swarn
+ && chown app:app /var/lib/swarn/work
 USER app
+WORKDIR /app
+COPY --chown=app:app agent2 /app/agent2
+COPY --chown=app:app swarn-backend /app/swarn-backend
+WORKDIR /app/swarn-backend
+RUN --mount=type=cache,target=/home/app/.cache/uv,uid=1000,gid=1000 \
+    uv sync --frozen --no-dev || uv sync --no-dev
+
 ENV PATH="/app/swarn-backend/.venv/bin:$PATH" BACKEND_WORK_DIR=/var/lib/swarn/work
 
 EXPOSE 8000

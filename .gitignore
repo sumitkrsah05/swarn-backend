@@ -10,3 +10,4 @@ work/
 .ruff_cache/
 dist/
 build/
+deploy/minio.license
